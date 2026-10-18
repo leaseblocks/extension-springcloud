@@ -44,6 +44,7 @@ import org.springframework.cloud.client.discovery.simple.SimpleDiscoveryClient;
 import org.springframework.cloud.client.discovery.simple.SimpleDiscoveryProperties;
 import org.springframework.cloud.client.serviceregistry.Registration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -55,6 +56,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.axonframework.common.ReflectionUtils.getFieldValue;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 /**
  * Test class validating the {@link SpringCloudAutoConfiguration}.
@@ -141,6 +143,30 @@ class SpringCloudAutoConfigurationTest {
             assertEquals(DistributedCommandBus.class, distributedCommandBus.getClass());
             assertNotEquals(localSegment, distributedCommandBus);
         });
+    }
+
+    @Test
+    void multiTenancyPropertyWithoutTheExtensionKeepsTheGlobalDistributedCommandBus() {
+        testApplicationContext.withPropertyValues(
+                "axon.distributed.enabled=true",
+                "axon.multi-tenancy.enabled=true"
+        ).run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context).getBean("distributedCommandBus")
+                               .isExactlyInstanceOf(DistributedCommandBus.class);
+        });
+    }
+
+    @Test
+    void customDistributedCommandBusIsPreserved() {
+        testApplicationContext.withPropertyValues("axon.distributed.enabled=true")
+                              .withUserConfiguration(CustomDistributedCommandBusContext.class)
+                              .run(context -> {
+                                  assertThat(context).hasNotFailed();
+                                  assertThat(context).doesNotHaveBean("distributedCommandBus");
+                                  assertThat(context).getBean(CommandBus.class)
+                                                     .isSameAs(context.getBean("customDistributedCommandBus"));
+                              });
     }
 
     @Test
@@ -263,6 +289,15 @@ class SpringCloudAutoConfigurationTest {
                 ).run(context -> {
                     assertThat(context).hasNotFailed();
                 });
+    }
+
+    static class CustomDistributedCommandBusContext {
+
+        @Bean
+        @Primary
+        DistributedCommandBus customDistributedCommandBus() {
+            return mock(DistributedCommandBus.class);
+        }
     }
 
     @EnableAutoConfiguration(exclude = {

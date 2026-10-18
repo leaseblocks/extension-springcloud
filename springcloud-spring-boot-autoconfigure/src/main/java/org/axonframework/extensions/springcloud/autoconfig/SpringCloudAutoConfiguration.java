@@ -159,7 +159,10 @@ public class SpringCloudAutoConfiguration {
     @Bean
     @Primary
     @ConditionalOnBean(CommandBusConnector.class)
-    @ConditionalOnMissingBean
+    @ConditionalOnMissingBean(
+            value = DistributedCommandBus.class,
+            type = "org.axonframework.extensions.multitenancy.autoconfig.MultiTenancySpringCloudAutoConfiguration"
+    )
     public DistributedCommandBus distributedCommandBus(CommandRouter commandRouter,
                                                        CommandBusConnector commandBusConnector,
                                                        org.axonframework.config.Configuration configuration,
